@@ -109,7 +109,11 @@ def worst_aqi(pm1: float, pm2_5: float, pm10: float) -> int:
 def _office_hours_shading(fig: go.Figure, index: pd.DatetimeIndex):
     if index.empty:
         return
-    dr = pd.date_range(start=index.min().floor("1D"), end=index.max().ceil("1D"), freq="1D", tz=index.tz)
+    # Note: end must NOT be ceil()'d - that rounds up into the next day even
+    # when there's no data there, adding a phantom shaded day. Plotly then
+    # expands the axis autorange to fit that shape, squeezing the real data
+    # into a corner of a much wider-than-necessary chart.
+    dr = pd.date_range(start=index.min().floor("1D"), end=index.max(), freq="1D", tz=index.tz)
     for d in dr:
         fig.add_vrect(
             x0=d + timedelta(hours=OFFICE_START),
@@ -162,7 +166,12 @@ def single_metric_chart(df: pd.DataFrame, pm_key: str, label: str,
     else:
         tick_format, n_ticks = "%b %d", 8
 
-    fig.update_xaxes(showgrid=False, nticks=n_ticks, tickformat=tick_format, tickangle=0)
+    # Pin the range to the actual data extent - belt-and-suspenders against
+    # any shape (like the office-hours shading) dragging the autorange wider
+    # than the real data, which is what was squeezing the line into a corner.
+    x_range = [plot_df.index.min(), plot_df.index.max()] if not plot_df.empty else None
+
+    fig.update_xaxes(showgrid=False, nticks=n_ticks, tickformat=tick_format, tickangle=0, range=x_range)
     fig.update_yaxes(showgrid=True, gridcolor="#e1e0d9")
     return fig
 
