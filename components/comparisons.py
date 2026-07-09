@@ -5,7 +5,6 @@ from datetime import timezone, timedelta
 import pandas as pd
 import streamlit as st
 
-from utils.analytics import OFFICE_START, OFFICE_END
 from utils.calculations import WHO_24H_LIMITS
 from utils.colors import PM_CARD_DEFS, SERIES_COLORS
 
@@ -45,7 +44,9 @@ def render_office_comparison(df: pd.DataFrame, tz_offset: int):
     local_tz = timezone(timedelta(hours=tz_offset))
     d = df.copy()
     d["local_hour"] = d["timestamp"].dt.tz_convert(local_tz).dt.hour
-    d["is_office"] = d["local_hour"].between(OFFICE_START, OFFICE_END - 1)
+    os_start = st.session_state.get("office_start", 10)
+    os_end = st.session_state.get("office_end", 21)
+    d["is_office"] = d["local_hour"].between(os_start, os_end - 1)
 
     office_df, nonoffice_df = d[d["is_office"]], d[~d["is_office"]]
     if office_df.empty or nonoffice_df.empty:

@@ -11,7 +11,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from utils.analytics import OFFICE_START, OFFICE_END
 from utils.colors import PM_CARD_DEFS, PM_ZONE_MAP
 
 DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
@@ -188,8 +187,10 @@ def render_daily_view(df: pd.DataFrame, tz_offset_int: int):
         duration = (day_df["ts_local"].iloc[-1] - day_df["ts_local"].iloc[0]).total_seconds() / 3600
 
         hour = day_df["ts_local"].dt.hour
-        office_df = day_df[(hour >= OFFICE_START) & (hour < OFFICE_END)]
-        non_office_df = day_df[(hour < OFFICE_START) | (hour >= OFFICE_END)]
+        os_start = st.session_state.get("office_start", 10)
+        os_end = st.session_state.get("office_end", 21)
+        office_df = day_df[(hour >= os_start) & (hour < os_end)]
+        non_office_df = day_df[(hour < os_start) | (hour >= os_end)]
         oc = _level_counts(office_df[pm_key], zones) if not office_df.empty else {}
         noc = _level_counts(non_office_df[pm_key], zones) if not non_office_df.empty else {}
 
@@ -227,7 +228,7 @@ def render_daily_view(df: pd.DataFrame, tz_offset_int: int):
 
         with col_pies:
             st.plotly_chart(
-                _pie_chart(oc, f"☀️ Office ({OFFICE_START:02d}:00–{OFFICE_END:02d}:00)", zones),
+                _pie_chart(oc, f"☀️ Office ({os_start:02d}:00–{os_end:02d}:00)", zones),
                 width="stretch", key=f"pie_o_{pm_key}_{day_date}"
             )
             st.plotly_chart(

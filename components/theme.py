@@ -22,11 +22,12 @@ def inject_global_css():
             .stDataFrame {{ border: none; border-radius: {t["radius"]}; box-shadow: {t["shadow"]}; }}
             .st-ef {{ border-radius: {t["radius"]}; }}
             section[data-testid="stSidebar"] > div {{
-                background: {t["card"]}; border-right: 1px solid {t["border"]}; padding: 20px 16px;
+                background: {t["card"]}; border-right: 1px solid {t["border"]}; padding: 16px 14px 0;
+                user-select: none; overflow: hidden;
             }}
-            section[data-testid="stSidebar"] .stSelectbox label {{
-                font-size: 13px; font-weight: 600; color: {t["text_secondary"]};
-            }}
+            section[data-testid="stSidebar"] hr {{ margin: 8px 0; }}
+            section[data-testid="stSidebar"] p {{ margin: 3px 0; }}
+            section[data-testid="stSidebar"] .stAlert {{ margin: 3px 0; padding: 4px 10px; }}
             .stAlert {{ border-radius: 10px; }}
             footer {{ display: none; }}
             div[data-testid="stExpander"] {{

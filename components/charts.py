@@ -11,19 +11,20 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from utils.analytics import OFFICE_START, OFFICE_END
 from utils.colors import PM_CARD_DEFS, SERIES_COLORS
 
 
 def _office_hours_shading(fig: go.Figure, index: pd.DatetimeIndex):
     if index.empty:
         return
+    os_start = st.session_state.get("office_start", 10)
+    os_end = st.session_state.get("office_end", 21)
     # end must NOT be ceil()'d - see git history: rounding up into a day with
     # no data adds a phantom shaded region that drags the axis autorange wide.
     dr = pd.date_range(start=index.min().floor("1D"), end=index.max(), freq="1D", tz=index.tz)
     for d in dr:
         fig.add_vrect(
-            x0=d + timedelta(hours=OFFICE_START), x1=d + timedelta(hours=OFFICE_END),
+            x0=d + timedelta(hours=os_start), x1=d + timedelta(hours=os_end),
             fillcolor="rgba(0, 228, 0, 0.08)", layer="below", line_width=0,
         )
 

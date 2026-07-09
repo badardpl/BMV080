@@ -8,7 +8,7 @@ from datetime import timezone, timedelta
 import pandas as pd
 import streamlit as st
 
-from utils.analytics import OFFICE_START, OFFICE_END, worst_aqi
+from utils.analytics import worst_aqi
 from utils.calculations import day_over_day_change
 from utils.colors import AQI_CATEGORIES
 from utils.health import HEALTH_ICONS, HEALTH_MESSAGES, best_ventilation_hour, build_recommendations
@@ -31,7 +31,9 @@ def generate_insights(df: pd.DataFrame, tz_offset: int) -> list:
         insights.append(f"Air quality is typically best around {best_hour:02d}:00.")
         insights.append(f"Highest pollution typically occurs around {worst_hour:02d}:00.")
 
-    d["is_office"] = d["local_hour"].between(OFFICE_START, OFFICE_END - 1)
+    os_start = st.session_state.get("office_start", 10)
+    os_end = st.session_state.get("office_end", 21)
+    d["is_office"] = d["local_hour"].between(os_start, os_end - 1)
     off_mean, noff_mean = d[d["is_office"]]["pm2_5"].mean(), d[~d["is_office"]]["pm2_5"].mean()
     if pd.notna(off_mean) and pd.notna(noff_mean):
         if off_mean < noff_mean:
@@ -70,7 +72,11 @@ def render_health_recommendation(df: pd.DataFrame, tz_offset: int):
     cat_name, cat_color = AQI_CATEGORIES[worst_idx][0], AQI_CATEGORIES[worst_idx][1]
     icon = HEALTH_ICONS[worst_idx]
     avg_pm1, avg_pm25, avg_pm10 = df["pm1"].mean(), df["pm2_5"].mean(), df["pm10"].mean()
-    recommendations = build_recommendations(df, tz_offset)
+    recommendations = build_recommendations(
+        df, tz_offset,
+        office_start=st.session_state.get("office_start", 10),
+        office_end=st.session_state.get("office_end", 21),
+    )
     rec_html = "".join(f'<div style="margin-top:4px;">✓ {r}</div>' for r in recommendations)
 
     st.markdown(

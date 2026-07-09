@@ -6,7 +6,7 @@ from datetime import timezone, timedelta
 
 import pandas as pd
 
-from utils.analytics import OFFICE_START, OFFICE_END, worst_aqi
+from utils.analytics import worst_aqi
 
 HEALTH_MESSAGES = [
     "Air quality is satisfactory. Enjoy your day!",
@@ -29,7 +29,7 @@ def best_ventilation_hour(df: pd.DataFrame, tz_offset: int) -> int:
     return int(d.groupby("local_hour")["pm2_5"].mean().idxmin())
 
 
-def build_recommendations(df: pd.DataFrame, tz_offset: int) -> list:
+def build_recommendations(df: pd.DataFrame, tz_offset: int, office_start: int = 10, office_end: int = 21) -> list:
     worst_idx = int(df.apply(lambda r: worst_aqi(r["pm1"], r["pm2_5"], r["pm10"]), axis=1).max())
     best_hour = best_ventilation_hour(df, tz_offset)
     recs = [f"Best ventilation time based on your data: {best_hour:02d}:00"]
@@ -42,7 +42,7 @@ def build_recommendations(df: pd.DataFrame, tz_offset: int) -> list:
     local_tz = timezone(timedelta(hours=tz_offset))
     d = df.copy()
     d["local_hour"] = d["timestamp"].dt.tz_convert(local_tz).dt.hour
-    d["is_office"] = d["local_hour"].between(OFFICE_START, OFFICE_END - 1)
+    d["is_office"] = d["local_hour"].between(office_start, office_end - 1)
     off_mean = d[d["is_office"]]["pm2_5"].mean()
     noff_mean = d[~d["is_office"]]["pm2_5"].mean()
     if pd.notna(off_mean) and pd.notna(noff_mean) and noff_mean > off_mean * 1.15:
