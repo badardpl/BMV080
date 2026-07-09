@@ -18,6 +18,7 @@ import streamlit as st
 from components.calendar import render_pollution_calendar
 from components.charts import render_histogram, render_main_chart
 from components.comparisons import render_office_comparison, render_who_comparison
+from components.daily_view import render_daily_view
 from components.forecast import render_forecast
 from components.header import render_header
 from components.heatmap import render_heatmap
@@ -35,7 +36,7 @@ from utils.health import build_recommendations
 st.set_page_config(page_title="BMV080 Air Quality", page_icon="🌫️", layout="wide")
 inject_global_css()
 
-tz_offset_int, hours_back, resample_rule, range_label = render_sidebar()
+tz_offset_int, hours_back, resample_rule, range_label, post_enabled, smoothing_window = render_sidebar()
 device_id = st.secrets.get("device_id", "unknown")
 render_header(device_id, tz_offset_int)
 
@@ -43,65 +44,93 @@ now = datetime.now(timezone.utc)
 df = fetch_readings(int((now - timedelta(hours=hours_back)).timestamp()), int(now.timestamp()))
 tab_id = f"h{hours_back}"
 
+# ── Postprocessing: optional smoothing & filtering ──────────────────────────
+if post_enabled and not df.empty:
+    before = len(df)
+    # 1. Filter invalid zeros (all three PM values < 0.5)
+    valid = (df["pm1"] >= 0.5) | (df["pm2_5"] >= 0.5) | (df["pm10"] >= 0.5)
+    df = df[valid].copy()
+    dropped = before - len(df)
+    # 2. Rolling mean (centered)
+    if smoothing_window > 1 and len(df) >= smoothing_window:
+        for col in ["pm1", "pm2_5", "pm10"]:
+            df[col] = df[col].rolling(window=smoothing_window, center=True).mean()
+        df = df.dropna().reset_index(drop=True)
+    if dropped:
+        st.caption(f"🔧 Postprocessing: filtered {dropped} invalid reading(s), "
+                   f"smoothed with {smoothing_window}-point rolling mean.")
+
 if df.empty:
     st.info(f"No readings in the {range_label.lower()} yet.")
 else:
-    render_kpi_cards(df, tab_id)
-    st.divider()
+    tab_daily, tab_analysis = st.tabs(["📅 Daily View", "📊 Analysis"])
 
-    st.subheader("📈 Air Quality Trend")
-    render_main_chart(df, resample_rule, tz_offset_int, tab_id)
-    st.divider()
+    # ═══════════════════════════════════════════════════════════════════
+    # TAB 1 — DAILY VIEW  (mirrors aircognition CO₂ dashboard style)
+    # ═══════════════════════════════════════════════════════════════════
+    with tab_daily:
+        render_daily_view(df, tz_offset_int)
 
-    col_heat, col_insights = st.columns([3, 2])
-    with col_heat:
-        st.subheader("🗓️ Hourly Pattern")
-        render_heatmap(df, tz_offset_int, tab_id)
-    with col_insights:
-        st.subheader("💡 Key Insights")
-        render_insights_panel(df, tz_offset_int)
-    st.divider()
+    # ═══════════════════════════════════════════════════════════════════
+    # TAB 2 — ANALYSIS  (original BMV080 dashboard content)
+    # ═══════════════════════════════════════════════════════════════════
+    with tab_analysis:
+        render_kpi_cards(df, tab_id)
+        st.divider()
 
-    st.subheader("🩺 Health Recommendation")
-    render_health_recommendation(df, tz_offset_int)
-    st.divider()
+        st.subheader("📈 Air Quality Trend")
+        render_main_chart(df, resample_rule, tz_offset_int, tab_id)
+        st.divider()
 
-    col_who, col_office = st.columns(2)
-    with col_who:
-        st.subheader("🌍 WHO Standard Comparison")
-        render_who_comparison(df)
-    with col_office:
-        st.subheader("🏢 Office vs. Non-Office")
-        render_office_comparison(df, tz_offset_int)
-    st.divider()
+        col_heat, col_insights = st.columns([3, 2])
+        with col_heat:
+            st.subheader("🗓️ Hourly Pattern")
+            render_heatmap(df, tz_offset_int, tab_id)
+        with col_insights:
+            st.subheader("💡 Key Insights")
+            render_insights_panel(df, tz_offset_int)
+        st.divider()
 
-    st.subheader("📊 Pollution Distribution")
-    render_histogram(df, tab_id)
-    st.divider()
+        st.subheader("🩺 Health Recommendation")
+        render_health_recommendation(df, tz_offset_int)
+        st.divider()
 
-    st.subheader("📆 Week-over-Week Comparison")
-    render_weekly_comparison()
-    st.divider()
+        col_who, col_office = st.columns(2)
+        with col_who:
+            st.subheader("🌍 WHO Standard Comparison")
+            render_who_comparison(df)
+        with col_office:
+            st.subheader("🏢 Office vs. Non-Office")
+            render_office_comparison(df, tz_offset_int)
+        st.divider()
 
-    col_forecast, col_calendar = st.columns([2, 3])
-    with col_forecast:
-        st.subheader("🔮 Forecast")
-        render_forecast(df, tab_id)
-    with col_calendar:
-        st.subheader("🗓️ Pollution Calendar")
-        render_pollution_calendar(tz_offset_int)
-    st.divider()
+        st.subheader("📊 Pollution Distribution")
+        render_histogram(df, tab_id)
+        st.divider()
 
-    st.subheader("⚡ Pollution Events")
-    render_peak_events(df, tz_offset_int)
-    st.divider()
+        st.subheader("📆 Week-over-Week Comparison")
+        render_weekly_comparison()
+        st.divider()
 
-    with st.expander("📈 Detailed Statistics"):
-        render_statistics_cards(df, hours_back)
+        col_forecast, col_calendar = st.columns([2, 3])
+        with col_forecast:
+            st.subheader("🔮 Forecast")
+            render_forecast(df, tab_id)
+        with col_calendar:
+            st.subheader("🗓️ Pollution Calendar")
+            render_pollution_calendar(tz_offset_int)
+        st.divider()
 
-    with st.expander("🗂️ Raw Data"):
-        render_raw_data(df, tz_offset_int, tab_id)
+        st.subheader("⚡ Pollution Events")
+        render_peak_events(df, tz_offset_int)
+        st.divider()
 
-    insights = generate_insights(df, tz_offset_int)
-    recommendations = build_recommendations(df, tz_offset_int)
-    render_sidebar_export(df, device_id, range_label, insights, recommendations)
+        with st.expander("📈 Detailed Statistics"):
+            render_statistics_cards(df, hours_back)
+
+        with st.expander("🗂️ Raw Data"):
+            render_raw_data(df, tz_offset_int, tab_id)
+
+        insights = generate_insights(df, tz_offset_int)
+        recommendations = build_recommendations(df, tz_offset_int)
+        render_sidebar_export(df, device_id, range_label, insights, recommendations)

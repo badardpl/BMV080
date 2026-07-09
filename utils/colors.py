@@ -44,3 +44,36 @@ PM_CARD_DEFS = [
     {"key": "pm2_5", "label": "PM2.5"},
     {"key": "pm10", "label": "PM10"},
 ]
+
+# AQI zone bands for Daily View zone-colored line charts.
+# Each entry: (lo, hi, label, solid_color, fill_rgba).
+# Thresholds match the breakpoints in utils/analytics.py.
+PM1_ZONES = [
+    (0,    15.0,  "Good",     "#00e400", "rgba(0,228,0,0.15)"),
+    (15.0, 40.0,  "Moderate", "#d4ac0d", "rgba(212,172,13,0.20)"),
+    (40.0, 80.0,  "Sensitive","#ff7e00", "rgba(255,126,0,0.15)"),
+    (80.0, 150.0, "Unhealthy","#ff0000", "rgba(255,0,0,0.15)"),
+    (150.0,250.0, "Very Bad", "#8f3f97", "rgba(143,63,151,0.15)"),
+    (250.0, 1e9,  "Hazardous","#7e0023", "rgba(126,0,35,0.18)"),
+]
+
+PM25_ZONES = [
+    (0,    12.0,  "Good",     "#00e400", "rgba(0,228,0,0.15)"),
+    (12.0, 35.4,  "Moderate", "#d4ac0d", "rgba(212,172,13,0.20)"),
+    (35.4, 55.4,  "Sensitive","#ff7e00", "rgba(255,126,0,0.15)"),
+    (55.4, 150.4, "Unhealthy","#ff0000", "rgba(255,0,0,0.15)"),
+    (150.4,250.4, "Very Bad", "#8f3f97", "rgba(143,63,151,0.15)"),
+    (250.4, 1e9,  "Hazardous","#7e0023", "rgba(126,0,35,0.18)"),
+]
+
+PM10_ZONES = [
+    (0,    54.0,  "Good",     "#00e400", "rgba(0,228,0,0.15)"),
+    (54.0, 154.0, "Moderate", "#d4ac0d", "rgba(212,172,13,0.20)"),
+    (154.0,254.0, "Sensitive","#ff7e00", "rgba(255,126,0,0.15)"),
+    (254.0,354.0, "Unhealthy","#ff0000", "rgba(255,0,0,0.15)"),
+    (354.0,424.0, "Very Bad", "#8f3f97", "rgba(143,63,151,0.15)"),
+    (424.0, 1e9,  "Hazardous","#7e0023", "rgba(126,0,35,0.18)"),
+]
+
+# Lookup from pollutant key to its zone list.
+PM_ZONE_MAP = {"pm1": PM1_ZONES, "pm2_5": PM25_ZONES, "pm10": PM10_ZONES}

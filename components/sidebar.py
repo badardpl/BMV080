@@ -21,7 +21,8 @@ AUTO_REFRESH_OPTIONS = {"Off": 0, "1 min": 60, "5 min": 300, "15 min": 900}
 
 
 def render_sidebar():
-    """Returns (tz_offset_int, hours_back, resample_rule, range_label)."""
+    """Returns (tz_offset_int, hours_back, resample_rule, range_label,
+               post_enabled, smoothing_window)."""
     with st.sidebar:
         st.markdown("## 🌫️ BMV080")
         st.markdown("<p style='color:#64748B;font-size:13px;margin-top:-8px;'>Air Quality Dashboard</p>",
@@ -45,6 +46,15 @@ def render_sidebar():
             _auto_refresh_tick(seconds)
 
         st.toggle("🌙 Dark Mode", key="dark_mode")
+
+        st.markdown("---")
+        st.markdown("### 🔧 Postprocessing")
+        post_enabled = st.toggle("Enable smoothing & filtering", value=False, key="post_enabled")
+        if post_enabled:
+            smoothing_window = st.slider("Smoothing window (points)", 3, 15, 5, key="smoothing_window")
+        else:
+            smoothing_window = 1
+        st.caption("Filters invalid zeros & applies rolling mean when enabled.")
 
         st.markdown("---")
         st.markdown("### 🏢 Office Hours")
@@ -72,7 +82,7 @@ def render_sidebar():
         st.markdown(f"**Device:** `{device_id}`")
         st.caption(f"Page updated: {datetime.now().strftime('%H:%M:%S')}")
 
-    return tz_offset_int, hours_back, resample_rule, range_label
+    return tz_offset_int, hours_back, resample_rule, range_label, post_enabled, smoothing_window
 
 
 def _auto_refresh_tick(seconds: int):
