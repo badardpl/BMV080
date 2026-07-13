@@ -19,17 +19,16 @@ from components.daily_view import render_daily_view
 from components.header import render_header
 from components.sidebar import render_sidebar
 from components.theme import inject_global_css
-from utils.data import fetch_readings
+from utils.data import fetch_all_readings
 
 st.set_page_config(page_title="BMV080 Air Quality", page_icon="🌫️", layout="wide")
 inject_global_css()
 
-tz_offset_int, hours_back, resample_rule, range_label, post_enabled, smoothing_window = render_sidebar()
+tz_offset_int, post_enabled, smoothing_window = render_sidebar()
 device_id = st.secrets.get("device_id", "unknown")
 render_header(device_id, tz_offset_int)
 
-now = datetime.now(timezone.utc)
-df = fetch_readings(int((now - timedelta(hours=hours_back)).timestamp()), int(now.timestamp()))
+df = fetch_all_readings()
 
 # ── Postprocessing: optional smoothing & filtering ──────────────────────────
 if post_enabled and not df.empty:
@@ -46,6 +45,6 @@ if post_enabled and not df.empty:
 
 
 if df.empty:
-    st.info(f"No readings in the {range_label.lower()} yet.")
+    st.info("No readings yet.")
 else:
     render_daily_view(df, tz_offset_int)
