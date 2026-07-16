@@ -30,18 +30,27 @@ render_header(device_id, tz_offset_int)
 
 df = fetch_all_readings()
 
-# ── Postprocessing: optional smoothing & filtering ──────────────────────────
+# ── Postprocessing ──────────────────────────────────────────────────────────
+# 1. Filter invalid zeros (toggle-controlled)
 if post_enabled and not df.empty:
     before = len(df)
-    # 1. Filter invalid zeros (all three PM values < 0.5)
     valid = (df["pm1"] >= 0.5) | (df["pm2_5"] >= 0.5) | (df["pm10"] >= 0.5)
     df = df[valid].copy()
-    dropped = before - len(df)
-    # 2. Rolling mean (centered)
-    if smoothing_window > 1 and len(df) >= smoothing_window:
-        for col in ["pm1", "pm2_5", "pm10"]:
-            df[col] = df[col].rolling(window=smoothing_window, center=True).mean()
-        df = df.dropna().reset_index(drop=True)
+
+# 2. Spike detection & replacement (always applied)
+if not df.empty and len(df) >= 3:
+    for col in ["pm1", "pm2_5", "pm10"]:
+        values = df[col].values.copy()
+        for i in range(1, len(values) - 1):
+            if abs(values[i] - values[i - 1]) > 10 and abs(values[i] - values[i + 1]) > 7:
+                values[i] = (values[i - 1] + values[i + 1]) / 2
+        df[col] = values
+
+# 3. Rolling mean smoothing (toggle-controlled)
+if post_enabled and not df.empty and smoothing_window > 1 and len(df) >= smoothing_window:
+    for col in ["pm1", "pm2_5", "pm10"]:
+        df[col] = df[col].rolling(window=smoothing_window, center=True).mean()
+    df = df.dropna().reset_index(drop=True)
 
 
 if df.empty:

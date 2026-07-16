@@ -20,7 +20,7 @@ def render_sidebar():
         st.toggle("Dark Mode", key="dark_mode")
 
         st.markdown("---")
-        post_enabled = st.toggle("Smoothing & filtering", value=False, key="post_enabled")
+        post_enabled = st.toggle("Smoothing & filtering", value=True, key="post_enabled")
         if post_enabled:
             smoothing_window = st.slider("Window (points)", 3, 15, 5, key="smoothing_window")
         else:
