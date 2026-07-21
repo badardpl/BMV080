@@ -2,14 +2,19 @@
 
 from datetime import datetime, timezone, timedelta
 
+import pandas as pd
+
 import streamlit as st
 
 AUTO_REFRESH_OPTIONS = {"Off": 0, "1 min": 60, "5 min": 300, "15 min": 900}
 
 
 def render_sidebar():
-    """Returns (tz_offset_int, post_enabled, smoothing_window)."""
+    """Returns (page, tz_offset_int, post_enabled, smoothing_window)."""
     with st.sidebar:
+        st.markdown("### Navigation")
+        page = st.radio("View", ["Analytics", "More"], label_visibility="collapsed")
+        st.markdown("---")
         tz_offset_int = 5
 
         refresh_choice = st.selectbox("Auto Refresh", list(AUTO_REFRESH_OPTIONS.keys()), index=0)
@@ -20,7 +25,7 @@ def render_sidebar():
         st.toggle("Dark Mode", key="dark_mode")
 
         st.markdown("---")
-        post_enabled = st.toggle("Smoothing & filtering", value=True, key="post_enabled")
+        post_enabled = st.toggle("Smoothing", value=True, key="post_enabled")
         if post_enabled:
             smoothing_window = st.slider("Window (points)", 3, 15, 5, key="smoothing_window")
         else:
@@ -40,7 +45,7 @@ def render_sidebar():
         device_id = st.secrets.get("device_id", "unknown")
         st.markdown(f"**Device:** `{device_id}`")
 
-    return tz_offset_int, post_enabled, smoothing_window
+    return page, tz_offset_int, post_enabled, smoothing_window
 
 
 def _auto_refresh_tick(seconds: int):
@@ -49,3 +54,36 @@ def _auto_refresh_tick(seconds: int):
         st.cache_data.clear()
         st.rerun()
     _tick()
+
+
+def render_analytics_date_filter(df: pd.DataFrame, tz_offset: int) -> pd.DataFrame:
+    """Return analytics readings inside the user-selected local-date range."""
+    if df.empty:
+        return df
+
+    local_dates = df["timestamp"].dt.tz_convert(timezone(timedelta(hours=tz_offset))).dt.date
+    first_date, last_date = local_dates.min(), local_dates.max()
+    with st.sidebar:
+        st.markdown("---")
+        st.markdown("**Analytics date range**")
+        use_date_filter = st.toggle("Filter by date", value=False, key="use_analytics_date_filter")
+        was_filtering = st.session_state.get("_analytics_date_filter_was_enabled", False)
+        if use_date_filter and not was_filtering:
+            # Start each new filtering session from the complete history,
+            # rather than reusing a stale date range from an earlier visit.
+            st.session_state["analytics_date_range"] = (first_date, last_date)
+        st.session_state["_analytics_date_filter_was_enabled"] = use_date_filter
+        if not use_date_filter:
+            st.caption(f"Showing all history: {first_date:%b %d, %Y} – {last_date:%b %d, %Y}")
+            return df
+        selected = st.date_input(
+            "Show readings from", value=(first_date, last_date),
+            min_value=first_date, max_value=last_date,
+            key="analytics_date_range", label_visibility="collapsed",
+        )
+
+    # Streamlit returns a single date while the user has selected only one end.
+    if not isinstance(selected, (tuple, list)) or len(selected) != 2:
+        return df
+    start_date, end_date = selected
+    return df[(local_dates >= start_date) & (local_dates <= end_date)].copy()

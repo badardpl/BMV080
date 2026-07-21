@@ -11,6 +11,7 @@ from boto3.dynamodb.conditions import Key
 # How stale the most recent reading can be before the header shows Offline.
 # Generous relative to the firmware's hourly flush cycle.
 ONLINE_THRESHOLD_MINUTES = 120
+READING_COLUMNS = ["timestamp", "pm1", "pm2_5", "pm10", "temp_c", "humidity"]
 
 
 @st.cache_resource
@@ -41,13 +42,16 @@ def fetch_readings(start_ts: int, end_ts: int) -> pd.DataFrame:
         query_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
 
     if not items:
-        return pd.DataFrame(columns=["timestamp", "pm1", "pm2_5", "pm10"])
+        return pd.DataFrame(columns=READING_COLUMNS)
 
     df = pd.DataFrame(items)
     for col in ["pm1", "pm2_5", "pm10"]:
         df[col] = df[col].apply(float)
+    # SHT31 fields are optional so historic PM-only readings still load.
+    for col in ["temp_c", "humidity"]:
+        df[col] = df[col].apply(float) if col in df.columns else float("nan")
     df["timestamp"] = pd.to_datetime(df["ts"].apply(int), unit="s", utc=True)
-    return df[["timestamp", "pm1", "pm2_5", "pm10"]].sort_values("timestamp")
+    return df[READING_COLUMNS].sort_values("timestamp")
 
 
 @st.cache_data(ttl=300)
@@ -69,13 +73,15 @@ def fetch_all_readings() -> pd.DataFrame:
         query_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
 
     if not items:
-        return pd.DataFrame(columns=["timestamp", "pm1", "pm2_5", "pm10"])
+        return pd.DataFrame(columns=READING_COLUMNS)
 
     df = pd.DataFrame(items)
     for col in ["pm1", "pm2_5", "pm10"]:
         df[col] = df[col].apply(float)
+    for col in ["temp_c", "humidity"]:
+        df[col] = df[col].apply(float) if col in df.columns else float("nan")
     df["timestamp"] = pd.to_datetime(df["ts"].apply(int), unit="s", utc=True)
-    return df[["timestamp", "pm1", "pm2_5", "pm10"]].sort_values("timestamp")
+    return df[READING_COLUMNS].sort_values("timestamp")
 
 
 @st.cache_data(ttl=60)

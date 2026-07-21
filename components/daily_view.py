@@ -142,6 +142,36 @@ def _pie_chart(counts: dict, title: str, zones: list) -> go.Figure:
     return fig
 
 
+def _environment_chart(day_df: pd.DataFrame, tz_offset: int) -> go.Figure:
+    """Temperature and humidity chart for one daily card."""
+    local_tz = timezone(timedelta(hours=tz_offset))
+    local_time = day_df["timestamp"].dt.tz_convert(local_tz)
+    fig = go.Figure()
+
+    if day_df["temp_c"].notna().any():
+        fig.add_trace(go.Scatter(
+            x=local_time, y=day_df["temp_c"], name="Temperature",
+            mode="lines+markers", line=dict(color="#e45756", width=2), marker=dict(size=5),
+            hovertemplate="%{x|%H:%M}<br><b>%{y:.1f} °C</b><extra>Temperature</extra>",
+        ))
+    if day_df["humidity"].notna().any():
+        fig.add_trace(go.Scatter(
+            x=local_time, y=day_df["humidity"], name="Humidity", yaxis="y2",
+            mode="lines+markers", line=dict(color="#378add", width=2), marker=dict(size=5),
+            hovertemplate="%{x|%H:%M}<br><b>%{y:.1f}%</b><extra>Humidity</extra>",
+        ))
+
+    fig.update_layout(
+        title="Temperature & humidity", height=245, margin=dict(l=0, r=0, t=38, b=0),
+        paper_bgcolor="white", plot_bgcolor="white",
+        legend=dict(orientation="h", y=1.15),
+        xaxis=dict(showgrid=True, gridcolor="#f0f0f0"),
+        yaxis=dict(title="Temperature (°C)", range=[0, 40], showgrid=True, gridcolor="#f0f0f0", tickmode="linear", dtick=3),
+        yaxis2=dict(title="Humidity (%)", overlaying="y", side="right", rangemode="tozero"),
+    )
+    return fig
+
+
 # ── Main renderer ─────────────────────────────────────────────────────────────
 
 def render_daily_view(df: pd.DataFrame, tz_offset_int: int):
@@ -225,6 +255,11 @@ def render_daily_view(df: pd.DataFrame, tz_offset_int: int):
         with col_line:
             st.plotly_chart(_line_chart(day_df, tz_offset_int, pm_key, zones),
                             width="stretch", key=f"line_{pm_key}_{day_date}")
+            if day_df[["temp_c", "humidity"]].notna().any().any():
+                st.plotly_chart(
+                    _environment_chart(day_df, tz_offset_int), width="stretch",
+                    key=f"environment_{day_date}",
+                )
 
         with col_pies:
             st.plotly_chart(
