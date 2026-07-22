@@ -37,16 +37,22 @@ df = fetch_all_readings()
 
 # 2. Spike detection & replacement (always applied)
 if not df.empty and len(df) >= 3:
-    for col in ["pm1", "pm2_5", "pm10"]:
+    for col in ["pm1", "pm2_5", "pm10", "temp_c", "humidity"]:
         values = df[col].values.copy()
         for i in range(1, len(values) - 1):
-            if abs(values[i] - values[i - 1]) > 10 and abs(values[i] - values[i + 1]) > 7:
+            if (
+                values[i] == values[i]
+                and values[i - 1] == values[i - 1]
+                and values[i + 1] == values[i + 1]
+                and abs(values[i] - values[i - 1]) > 10
+                and abs(values[i] - values[i + 1]) > 7
+            ):
                 values[i] = (values[i - 1] + values[i + 1]) / 2
         df[col] = values
 
 # 3. Rolling mean smoothing (toggle-controlled)
 if post_enabled and not df.empty and smoothing_window > 1 and len(df) >= smoothing_window:
-    for col in ["pm1", "pm2_5", "pm10"]:
+    for col in ["pm1", "pm2_5", "pm10", "temp_c", "humidity"]:
         # min_periods=1 preserves readings at the beginning/end of history.
         df[col] = df[col].rolling(window=smoothing_window, center=True, min_periods=1).mean()
 
