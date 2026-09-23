@@ -58,7 +58,7 @@ if post_enabled and not df.empty and smoothing_window > 1 and len(df) >= smoothi
 
 
 if df.empty:
-    st.info("No readings yet.")
+    st.info("No readings in the last 30 days.")
 else:
     if page == "More":
         render_more_data(df, tz_offset_int)

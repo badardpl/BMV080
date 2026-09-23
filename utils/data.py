@@ -1,6 +1,7 @@
 """DynamoDB access. get_table() and fetch_readings() are unchanged from the
 original app.py - only get_latest_reading() is new (additive, read-only)."""
 
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import boto3
@@ -12,6 +13,10 @@ from boto3.dynamodb.conditions import Key
 # Generous relative to the firmware's hourly flush cycle.
 ONLINE_THRESHOLD_MINUTES = 120
 READING_COLUMNS = ["timestamp", "pm1", "pm2_5", "pm10", "temp_c", "humidity"]
+
+# Number of trailing days of history the dashboard loads. Bounding the
+# DynamoDB query (instead of scanning the whole table) keeps the app light.
+HISTORY_DAYS = 30
 
 
 @st.cache_resource
@@ -55,15 +60,19 @@ def fetch_readings(start_ts: int, end_ts: int) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def fetch_all_readings() -> pd.DataFrame:
-    """Fetch ALL readings for the device (no date range filter).
-    Powers the daily view which shows a card for every day with data."""
+def fetch_all_readings(max_days: int = HISTORY_DAYS) -> pd.DataFrame:
+    """Fetch readings for the trailing `max_days` (default 30) ending now.
+    Bounding the DynamoDB range query keeps the payload light; the daily view
+    then only shows cards for days inside that window."""
     table = get_table()
     device_id = st.secrets["device_id"]
 
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+    start_ts = now_ts - max_days * 86400
+
     items = []
     query_kwargs = {
-        "KeyConditionExpression": Key("device_id").eq(device_id)
+        "KeyConditionExpression": Key("device_id").eq(device_id) & Key("ts").between(start_ts, now_ts)
     }
     while True:
         response = table.query(**query_kwargs)
